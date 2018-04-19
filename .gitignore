@@ -107,3 +107,4 @@ venv.bak/
 # custom
 dl_env/
 saves/
+sftp-config.json
