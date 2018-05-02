@@ -21,7 +21,7 @@ def concatenate(arrs, axis=0):
 def argmax(x, axis=None):
     return tf.argmax(x, axis=axis)
 def softmax(x, axis=None):
-    return tf.nn.softmax(x, dim=axis)    
+    return tf.nn.softmax(x, dim=axis)
 
 # ================================================================
 # Misc
@@ -138,7 +138,7 @@ def minimize_and_clip(optimizer, objective, var_list, clip_val=10):
     """Minimized `objective` using `optimizer` w.r.t. variables in
     `var_list` while ensure the norm of the gradients for each
     variable is clipped to `clip_val`
-    """    
+    """
     if clip_val is None:
         return optimizer.minimize(objective, var_list=var_list)
     else:

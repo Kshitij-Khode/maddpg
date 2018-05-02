@@ -8,6 +8,7 @@ from maddpg import AgentTrainer
 from maddpg.trainer.replay_buffer import ReplayBuffer
 
 
+
 def discount_with_dones(rewards, dones, gamma):
     discounted = []
     r = 0
@@ -34,9 +35,9 @@ def p_train(make_obs_ph_n, act_space_n, p_index, p_func, q_func, optimizer, grad
         obs_ph_n = make_obs_ph_n
         act_ph_n = [act_pdtype_n[i].sample_placeholder([None], name="action"+str(i)) for i in range(len(act_space_n))]
 
-        p_input = obs_ph_n[p_index]
-
-        p = p_func(p_input, int(act_pdtype_n[p_index].param_shape()[0]), scope="p_func", num_units=num_units)
+        p = p_func(tf.concat(obs_ph_n[p_index],-1),
+                   int(act_pdtype_n[p_index].param_shape()[0]),
+                   scope="p_func")
         p_func_vars = U.scope_vars(U.absolute_scope_name("p_func"))
 
         # wrap parameters in distribution
@@ -47,10 +48,20 @@ def p_train(make_obs_ph_n, act_space_n, p_index, p_func, q_func, optimizer, grad
 
         act_input_n = act_ph_n + []
         act_input_n[p_index] = act_pd.sample() #act_pd.mode() #
-        q_input = tf.concat(obs_ph_n + act_input_n, 1)
+
         if local_q_func:
-            q_input = tf.concat([obs_ph_n[p_index], act_input_n[p_index]], 1)
-        q = q_func(q_input, 1, scope="q_func", reuse=True, num_units=num_units)[:,0]
+            q = q_func(tf.concat(obs_ph_n[p_index],-1),
+                       1,
+                       scope="q_func",
+                       a_input=tf.concat(act_input_n[p_index],-1),
+                       reuse=True)[:,0]
+        else:
+            q = q_func(tf.concat(obs_ph_n,-1),
+                       1,
+                       scope="q_func",
+                       a_input=tf.concat(act_input_n,-1),
+                       reuse=True)[:,0]
+
         pg_loss = -tf.reduce_mean(q)
 
         loss = pg_loss + p_reg * 1e-3
@@ -63,7 +74,9 @@ def p_train(make_obs_ph_n, act_space_n, p_index, p_func, q_func, optimizer, grad
         p_values = U.function([obs_ph_n[p_index]], p)
 
         # target network
-        target_p = p_func(p_input, int(act_pdtype_n[p_index].param_shape()[0]), scope="target_p_func", num_units=num_units)
+        target_p = p_func(tf.concat(obs_ph_n[p_index],-1),
+                          int(act_pdtype_n[p_index].param_shape()[0]),
+                          scope="target_p_func")
         target_p_func_vars = U.scope_vars(U.absolute_scope_name("target_p_func"))
         update_target_p = make_update_exp(p_func_vars, target_p_func_vars)
 
@@ -82,10 +95,17 @@ def q_train(make_obs_ph_n, act_space_n, q_index, q_func, optimizer, grad_norm_cl
         act_ph_n = [act_pdtype_n[i].sample_placeholder([None], name="action"+str(i)) for i in range(len(act_space_n))]
         target_ph = tf.placeholder(tf.float32, [None], name="target")
 
-        q_input = tf.concat(obs_ph_n + act_ph_n, 1)
         if local_q_func:
-            q_input = tf.concat([obs_ph_n[q_index], act_ph_n[q_index]], 1)
-        q = q_func(q_input, 1, scope="q_func", num_units=num_units)[:,0]
+            q = q_func(tf.concat(obs_ph_n[q_index],-1),
+                       1,
+                       scope="q_func",
+                       a_input=tf.concat(act_ph_n[q_index],-1))[:,0]
+        else:
+            q = q_func(tf.concat(obs_ph_n,-1),
+                       1,
+                       scope="q_func",
+                       a_input=tf.concat(act_ph_n,-1))[:,0]
+
         q_func_vars = U.scope_vars(U.absolute_scope_name("q_func"))
 
         q_loss = tf.reduce_mean(tf.square(q - target_ph))
@@ -101,7 +121,17 @@ def q_train(make_obs_ph_n, act_space_n, q_index, q_func, optimizer, grad_norm_cl
         q_values = U.function(obs_ph_n + act_ph_n, q)
 
         # target network
-        target_q = q_func(q_input, 1, scope="target_q_func", num_units=num_units)[:,0]
+        if local_q_func:
+            target_q = q_func(tf.concat(obs_ph_n[q_index],-1),
+                              1,
+                              scope="target_q_func",
+                              a_input=tf.concat(act_ph_n[q_index],-1))[:,0]
+        else:
+            target_q = q_func(tf.concat(obs_ph_n,-1),
+                              1,
+                              scope="target_q_func",
+                              a_input=tf.concat(act_ph_n,-1))[:,0]
+
         target_q_func_vars = U.scope_vars(U.absolute_scope_name("target_q_func"))
         update_target_q = make_update_exp(q_func_vars, target_q_func_vars)
 

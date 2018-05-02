@@ -108,3 +108,4 @@ venv.bak/
 dl_env/
 saves/
 sftp-config.json
+sftp-config-alt.json

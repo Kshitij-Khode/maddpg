@@ -6,7 +6,6 @@
 #SBATCH -t 24:00:00
 
 # This will request 2 CPU cores, an one P100 on a shared GPU node
-# If the job is still running after 10 hours, it will be automatically killed.
 
 set -x  # echo commands to stdout
 set -u  # throw an error if unset variable referenced
